@@ -58,20 +58,14 @@ for name, classifier in models.copy().items():
     env.train(name + "_extended_bias", clone(classifier), impute_preprocessor, extended_bias, numcat_bias_preprocessor_2)
     env.tune(name + "_extended_bias")
 
-# classifier = RandomForestClassifier(random_state=0),
-# env.train("random_forest_classifier_bias", clone(classifier), impute_preprocessor, basic_bias, numcat_preprocessor_2)
-# env.tune("random_forest_classifier_bias")
-
 # Plot decision tree
-env.plot_tree('decision_tree_classifier_bias')
+# env.plot_tree('decision_tree_classifier_bias')
 
 # Save model performance
 env.export("performance.xlsx")
 
-# Load and run test data
+# Load, run and save test data
 df_test = pd.read_excel("assignment2_test.xlsx")
 df_test['predicted income'] = env.predict('random_forest_classifier_bias_tuned', df_test)
-
-# Save test data
 df_test.to_excel("assignment2_test_predicted.xlsx", index=False)
 

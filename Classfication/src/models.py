@@ -51,6 +51,7 @@ class TrainingEnvironment():
         return model
 
     def predict(self, model_name: str, X: DataFrame):
+        # Run a saved model on a new dataset
         if not model_name in self.trained_models:
             print(f"Model {model_name} not found")
             return
@@ -77,6 +78,7 @@ class TrainingEnvironment():
             print(f"Error plotting tree: {e}")
 
     def tune(self, model_name: str):
+        # Tune hyperparameters of a saved model and save it as a new model
         if model_name not in self.trained_models:
             print(f"Model {model_name} not found")
             return
@@ -123,6 +125,7 @@ class TrainingEnvironment():
             print(f"No hyperparameters defined for classifier of type {type(classifier).__name__}")
             return
 
+        # Custom scorer that uses MSE of wrongly classified instances per gender and error type
         def fp_fn_sum_with_ref(y_true, y_pred, reference_col):
             # Check consistency of data lengths
             assert len(y_true) == len(y_pred) == len(reference_col), "Mismatched lengths"
