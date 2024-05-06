@@ -38,9 +38,7 @@ from nltk.stem import SnowballStemmer
 from nltk.corpus import stopwords, words
 import nltk
 from sklearn.metrics import silhouette_score
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import MinMaxScaler
 
 nltk.download('stopwords')
 
@@ -52,12 +50,13 @@ original_df = df.copy()
 
 stop_words = set(stopwords.words('english'))
 english_vocab = set(word.lower() for word in words.words())
+stem = SnowballStemmer('english')
 
 # Inspect the dataset
 # inspect(df)
 
 # Based on the steps above, create a function called preprocess_column that preprocesses a column
-def preprocess_column(column):
+def preprocess_column(column, min_count = 0):
     # Lowercase
     column = column.apply(lambda x: x.lower().strip())
     # Remove special characters
@@ -68,60 +67,28 @@ def preprocess_column(column):
     column = column.replace(r'\s+', r' ', regex=True)
     # Remove leading and trailing spaces
     column = column.apply(lambda x: x.strip())
-    # Remove non-english and stopwords
-    column = column.apply(lambda x: " ".join(x for x in str(x).split() if x not in stop_words and x in english_vocab))
+    # Remove stopwords
+    column = column.apply(lambda x: " ".join(x for x in str(x).split() if x not in stop_words))
+    # Remove non-english words
+    # column = column.apply(lambda x: " ".join(x for x in str(x).split() if x in english_vocab or len(x) > 3))
+    # Remove words whose length is more than 3 and have no syllable
+    # Print count of words that have length more than 3 and have no syllable
+    column = column.apply(lambda x: " ".join(x for x in str(x).split() if len(x) <= 3 or any(v in x for v in 'aeiou')))
     # Stemming
-    # stem = SnowballStemmer('english')
     # column = column.apply(lambda x: ' '.join([stem.stem(word) for word in str(x).split()]))
-    # Remove s at the end of words
-    column = column.replace(r'\b(\w+)(s)\b', r'\1', regex=True)
+    # Create dictionary of words and their frequency
+    word_freq = pd.Series(' '.join(column).split()).value_counts()
+    # Remove all elements that only occur once
+    column = column.apply(lambda x: ' '.join([word for word in x.split() if word_freq[word] > min_count]))
     return column
 
 
 # Preprocess the content column
-df['headlines'] = preprocess_column(df['headlines'])
-df['description'] = preprocess_column(df['description'])
-df['content'] = preprocess_column(df['content'])
+df['headlines'] = preprocess_column(df['headlines'], min_count=2)
+df['description'] = preprocess_column(df['description'], min_count=2)
+df['content'] = preprocess_column(df['content'], min_count=10)
 
 df.to_excel('assignment3_articles_preprocessed.xlsx', index=False)
-
-# Create bag of words of all three columns, give 'headlines' a weight of 3, 'description' a weight of 2 and 'content' a weight of 1
-# Assuming df is your DataFrame
-# vectorizer = TfidfVectorizer(stop_words="english")
-vectorizer = CountVectorizer(stop_words="english")
-
-# Transforming each column separately
-# combined_text = df['headlines'] + ' ' + df['description']
-combined_text = df['headlines'] + ' ' + df['description'] + ' ' + df['content']
-# combined_text = df['headlines'] + ' ' + df['headlines'] + ' ' + df['headlines'] + ' ' + df['description'] + ' ' + df['description'] + ' ' + df['content']
-# combined_text = df['headlines'] + ' ' + df['headlines'] + ' ' + df['headlines'] + ' ' + df['description'] + ' ' + df['description']
-X = vectorizer.fit_transform(combined_text)
-print(X.nnz)
-print(X.shape)
-
-# Print count of columns with 1 value
-print(np.sum(X.sum(axis=0) == 1))
-
-
-cosine_sim = cosine_similarity(X)
-
-X = 1 - cosine_sim
-
-# Assuming X is your bag-of-words matrix
-num_clusters = 8
-# Initialize KMeans clustering with 10 clusters
-kmeans = KMeans(n_clusters=num_clusters, random_state=0)
-# Use other clustering algorithnm
-# kmeans = DBSCAN(eps=0.5, min_samples=5)
-# Another clustering algorithm
-# kmeans = AgglomerativeClustering(n_clusters=num_clusters)
-# kmeans = Birch(n_clusters=num_clusters)
-
-# pca = PCA(n_components=100, svd_solver="arpack")  # Specify the desired number of components
-# X_reduced = pca.fit_transform(X)
-
-# svd = TruncatedSVD(n_components=100)  # Specify the desired number of components
-# X = svd.fit_transform(X)
 
 
 # Define a custom scoring function
@@ -148,7 +115,7 @@ def custom_score_toarray(estimator, X):
 parameters = {
     # "AffinityPropagation": {"damping": [0.5, 0.7, 0.9]},
     # "Birch": {"n_clusters": [2]},
-    "KMeans": {"n_clusters": list(range(3, 10)), "init": ["k-means++", "random"], "n_init": [10, 20, 30], "max_iter": [50, 100, 200], "tol": [1e-4, 1e-2]},
+    # "KMeans": {"n_clusters": list(range(3, 10)), "init": ["k-means++", "random"], "n_init": [10, 20, 30], "max_iter": [50, 100, 200], "tol": [1e-4, 1e-2]},
     # "BisectingKMeans": {"n_clusters": [2, 3, 4, 5], "n_init": [10, 20, 30], "max_iter": [50, 100, 200]},
     # "MiniBatchKMeans": {"n_clusters": [2, 3, 4, 5], "init": ["k-means++", "random"], "n_init": [10, 20, 30], "max_iter": [50, 100, 200]},
     # "HDBSCAN": {"min_cluster_size": [10, 20, 30], "min_samples": [5, 10, 15], "cluster_selection_epsilon": [0.5, 1.0, 1.5]},
@@ -156,12 +123,12 @@ parameters = {
 
 parameters_toarray = {
     # "AgglomerativeClustering": {"n_clusters": [2, 3, 4, 5]},
-    "DBSCAN": {"eps": [0.5, 1.0, 1.5], "min_samples": [5, 10, 15]},
+    "DBSCAN": {"eps": [0.5, 1.0, 1.5], "min_samples": [5, 10, 15], "metric": ['euclidean', 'cosine']},
     # "OPTICS": {"min_samples": [5, 10, 15]},
     # "MeanShift": {"bandwidth": [0.1, 0.5, 1.0]},
 }
 
-# # Iterate over each clustering model and perform grid search
+# Iterate over each clustering model and perform grid search
 # for model_name in parameters.keys():
 #     print(f"Performing grid search for {model_name}")
 #     start = time.time()
@@ -184,6 +151,20 @@ parameters_toarray = {
 #     end = time.time()
 #     print(f"Time taken: {end - start}")
 
+# Create bag of words of all three columns, give 'headlines' a weight of 3, 'description' a weight of 2 and 'content' a weight of 1
+# Assuming df is your DataFrame
+vectorizer = TfidfVectorizer()
+# vectorizer = CountVectorizer()
+
+# Transforming each column separately
+# combined_text = df['headlines'] + ' ' + df['description']
+combined_text = df['headlines'] + ' ' + df['description'] + ' ' + df['content']
+# combined_text = df['headlines'] + ' ' + df['headlines'] + ' ' + df['headlines'] + ' ' + df['description'] + ' ' + df['description'] + ' ' + df['content']
+# combined_text = df['headlines'] + ' ' + df['headlines'] + ' ' + df['headlines'] + ' ' + df['description'] + ' ' + df['description']
+X = vectorizer.fit_transform(combined_text)
+print(X.nnz)
+print(X.shape)
+
 
 # for model_name in parameters_toarray.keys():
 #     print(f"Performing grid search for {model_name}")
@@ -193,8 +174,23 @@ parameters_toarray = {
 #     grid_search.fit(X.toarray())
 #     print(f"Best parameters for {model_name}: {grid_search.best_params_}")
 
+
+
+
+
+# Assuming X is your bag-of-words matrix
+num_clusters = 8
+# Initialize KMeans clustering with 10 clusters
+kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+# Use other clustering algorithnm
+# kmeans = DBSCAN(eps=0.6, min_samples=15, metric='cosine')
+# Another clustering algorithm
+# kmeans = AgglomerativeClustering(n_clusters=num_clusters)
+# kmeans = Birch(n_clusters=num_clusters)
+
 # Fit the KMeans model to your data
-kmeans.fit(X)
+# kmeans.fit(X)
+kmeans.fit(X.toarray())
 # Get the cluster assignments for each document
 cluster_assignments = kmeans.labels_
 # Print the cluster assignments for each document

@@ -1,4 +1,5 @@
 from pandas import DataFrame
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, Birch
 
 
 def inspect(df: DataFrame):
@@ -41,12 +42,86 @@ def inspect(df: DataFrame):
     end_index = min(len(word_counts_4), len(word_counts_4) // 3 + 20)
     print('Less common words length 4:\t' + ', '.join(word_counts_4.iloc[start_index:end_index].index))
 
+def explain(model, terms):
+    if isinstance(model, KMeans):
+        explain_kmeans(model, terms)
+    elif isinstance(model, DBSCAN):
+        explain_dbscan(model, terms)
+    elif isinstance(model, AgglomerativeClustering):
+        explain_agglomerative(model, terms)
+    elif isinstance(model, Birch):
+        explain_birch(model, terms)
 
-def explain(kmeans_model, terms):
+def explain_kmeans(kmeans_model, terms):
     order_centroids = kmeans_model.cluster_centers_.argsort()[:, ::-1]
 
     for i in range(len(order_centroids)):
         print("Cluster %d:" % i),
         for ind in order_centroids[i, :10]:
             print(' %s' % terms[ind]),
+        print('--------------------------------')
+
+def explain_dbscan(dbscan_model, terms):
+    # Group the documents by cluster label
+    clusters = {}
+    for i, label in enumerate(dbscan_model.labels_):
+        if label not in clusters:
+            clusters[label] = []
+        clusters[label].append(i)
+
+    for label, indices in clusters.items():
+        print("Cluster %d:" % label)
+        cluster_terms = []
+        # Aggregate the terms from documents in the cluster
+        for index in indices:
+            cluster_terms.extend(terms[index].split())
+        # Count the frequency of each term
+        term_counts = {}
+        for term in cluster_terms:
+            term_counts[term] = term_counts.get(term, 0) + 1
+        # Sort terms by frequency
+        sorted_terms = sorted(term_counts.items(), key=lambda x: x[1], reverse=True)
+        # Print the top 10 terms
+        for term, count in sorted_terms[:10]:
+            print(' %s' % term)
+        print('--------------------------------')
+
+
+def explain_agglomerative(agglomerative_model, terms):
+    # Get the cluster labels assigned by Agglomerative Clustering
+    cluster_labels = agglomerative_model.labels_
+
+    # Create a dictionary to store the terms associated with each cluster
+    cluster_terms = {}
+    for i, label in enumerate(cluster_labels):
+        if label not in cluster_terms:
+            cluster_terms[label] = []
+        cluster_terms[label].append(terms[i])
+
+    # Print the top terms for each cluster
+    for label, terms in cluster_terms.items():
+        print(f"Cluster {label}:")
+        # Print the top 10 terms for each cluster
+        for term in terms[:10]:
+            print(f" {term}")
+        print('--------------------------------')
+
+
+def explain_birch(birch_model, terms):
+    # Get the cluster labels assigned by BIRCH
+    cluster_labels = birch_model.labels_
+
+    # Create a dictionary to store the terms associated with each cluster
+    cluster_terms = {}
+    for i, label in enumerate(cluster_labels):
+        if label not in cluster_terms:
+            cluster_terms[label] = []
+        cluster_terms[label].append(terms[i])
+
+    # Print the top terms for each cluster
+    for label, terms in cluster_terms.items():
+        print(f"Cluster {label}:")
+        # Print the top 10 terms for each cluster
+        for term in terms[:10]:
+            print(f" {term}")
         print('--------------------------------')
