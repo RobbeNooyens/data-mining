@@ -1,5 +1,15 @@
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from nltk import SnowballStemmer
+from nltk.corpus import stopwords, words
 from pandas import DataFrame
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, Birch
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, Birch, AffinityPropagation
+from sklearn.decomposition import TruncatedSVD, PCA
+
+stop_words = set(stopwords.words('english'))
+english_vocab = set(word.lower() for word in words.words())
+stem = SnowballStemmer('english')
 
 
 def inspect(df: DataFrame):
@@ -42,6 +52,34 @@ def inspect(df: DataFrame):
     end_index = min(len(word_counts_4), len(word_counts_4) // 3 + 20)
     print('Less common words length 4:\t' + ', '.join(word_counts_4.iloc[start_index:end_index].index))
 
+
+def preprocess_column(column, min_count=0):
+    # Lowercase
+    column = column.apply(lambda x: x.lower().strip())
+    # Remove special characters
+    column = column.replace(r'[^a-zA-Z]', r' ', regex=True)
+    # Remove words of length 1 or 2
+    column = column.replace(r'\b\w{1,2}\b', r'', regex=True)
+    # Remove multiple spaces
+    column = column.replace(r'\s+', r' ', regex=True)
+    # Remove leading and trailing spaces
+    column = column.apply(lambda x: x.strip())
+    # Remove stopwords
+    column = column.apply(lambda x: " ".join(x for x in str(x).split() if x not in stop_words))
+    # Remove non-english words
+    # column = column.apply(lambda x: " ".join(x for x in str(x).split() if x in english_vocab or len(x) > 3))
+    # Remove words whose length is more than 3 and have no syllable
+    # Print count of words that have length more than 3 and have no syllable
+    column = column.apply(lambda x: " ".join(x for x in str(x).split() if len(x) <= 3 or any(v in x for v in 'aeiou')))
+    # Stemming
+    # column = column.apply(lambda x: ' '.join([stem.stem(word) for word in str(x).split()]))
+    # Create dictionary of words and their frequency
+    word_freq = pd.Series(' '.join(column).split()).value_counts()
+    # Remove all elements that only occur once
+    column = column.apply(lambda x: ' '.join([word for word in x.split() if word_freq[word] > min_count]))
+    return column
+
+
 def explain(model, terms):
     if isinstance(model, KMeans):
         explain_kmeans(model, terms)
@@ -51,6 +89,9 @@ def explain(model, terms):
         explain_agglomerative(model, terms)
     elif isinstance(model, Birch):
         explain_birch(model, terms)
+    elif isinstance(model, AffinityPropagation):
+        explain_dbscan(model, terms)
+
 
 def explain_kmeans(kmeans_model, terms):
     order_centroids = kmeans_model.cluster_centers_.argsort()[:, ::-1]
@@ -60,6 +101,7 @@ def explain_kmeans(kmeans_model, terms):
         for ind in order_centroids[i, :10]:
             print(' %s' % terms[ind]),
         print('--------------------------------')
+
 
 def explain_dbscan(dbscan_model, terms):
     # Group the documents by cluster label
@@ -125,3 +167,108 @@ def explain_birch(birch_model, terms):
         for term in terms[:10]:
             print(f" {term}")
         print('--------------------------------')
+
+
+def explain_affinity_propagation(affinity_propagation_model, terms):
+    # Get the cluster labels assigned by Affinity Propagation
+    cluster_labels = affinity_propagation_model.labels_
+
+    # Create a dictionary to store the terms associated with each cluster
+    cluster_terms = {}
+    for i, label in enumerate(cluster_labels):
+        if label not in cluster_terms:
+            cluster_terms[label] = []
+        cluster_terms[label].append(terms[i])
+
+    # Print the top terms for each cluster
+    for label, terms in cluster_terms.items():
+        print(f"Cluster {label}:")
+        # Print the top 10 terms for each cluster
+        for term in terms[:10]:
+            print(f" {term}")
+        print('--------------------------------')
+
+
+def plot_clusters(cluster_assignments, title='Number of documents in each cluster'):
+    plt.hist(cluster_assignments, bins=len(set(cluster_assignments)))
+    plt.xlabel('Cluster')
+    plt.ylabel('Number of documents')
+    plt.title(title)
+    plt.show()
+
+
+def plot_2d_datapoints(X, cluster_assignments=None):
+    # Perform TruncatedSVD
+    svd = TruncatedSVD(n_components=2)
+    svd_components = svd.fit_transform(X)
+
+    # Create a DataFrame for the SVD results
+    svd_df = pd.DataFrame(data=svd_components, columns=['Component 1', 'Component 2'])
+
+    # Plotting
+    plt.figure(figsize=(10, 8))
+
+    if cluster_assignments is not None:
+        svd_df['Cluster'] = cluster_assignments
+        num_clusters = len(set(cluster_assignments))
+        for i in range(num_clusters):
+            plt.scatter(svd_df.loc[svd_df['Cluster'] == i, 'Component 1'],
+                        svd_df.loc[svd_df['Cluster'] == i, 'Component 2'],
+                        label=f'Cluster {i}')
+    else:
+        plt.scatter(svd_df['Component 1'], svd_df['Component 2'], color='gray')
+
+    plt.xlabel('SVD Component 1')
+    plt.ylabel('SVD Component 2')
+    plt.title('2D SVD plot of document clusters')
+    if cluster_assignments is not None:
+        plt.legend()
+    plt.show()
+
+    # Perform PCA
+    pca = PCA(n_components=2)
+    pca_components = pca.fit_transform(X.toarray())
+
+    # Create a DataFrame for the PCA results
+    pca_df = pd.DataFrame(data=pca_components, columns=['Component 1', 'Component 2'])
+
+    # Plotting
+    plt.figure(figsize=(10, 8))
+
+    if cluster_assignments is not None:
+        pca_df['Cluster'] = cluster_assignments
+        num_clusters = len(set(cluster_assignments))
+        for i in range(num_clusters):
+            plt.scatter(pca_df.loc[pca_df['Cluster'] == i, 'Component 1'],
+                        pca_df.loc[pca_df['Cluster'] == i, 'Component 2'],
+                        label=f'Cluster {i}')
+    else:
+        plt.scatter(pca_df['Component 1'], pca_df['Component 2'], color='gray')
+
+    plt.xlabel('PCA Component 1')
+    plt.ylabel('PCA Component 2')
+    plt.title('2D PCA plot of document data points')
+    if cluster_assignments is not None:
+        plt.legend()
+    plt.show()
+
+
+def explain_clusters(labels, X_original, feature_names):
+    num_clusters = np.max(labels) + 1
+
+    # Calculate the mean TF-IDF score for each term in each cluster
+    term_ratios = np.zeros((num_clusters, X_original.shape[1]))
+
+    for i in range(num_clusters):
+        # Find indices of documents in the cluster
+        indices = np.where(labels == i)[0]
+        # Aggregate TF-IDF scores by mean within the cluster
+        term_ratios[i, :] = np.mean(X_original[indices], axis=0)
+
+    # Print top terms for each cluster
+    for i in range(num_clusters):
+        print(f"Cluster {i}:")
+        top_terms = term_ratios[i].argsort()[::-1][:10]  # Get indices of top terms
+        for ind in top_terms:
+            print(f' {feature_names[ind]} ({term_ratios[i, ind]:.2f})', end=', ')
+        print('\n--------------------------------')
