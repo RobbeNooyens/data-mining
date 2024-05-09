@@ -1,0 +1,22 @@
+\section{Data inspection}
+
+Before we can start manipulating the data, we have to know what our data looks like. Inspecting the data learns us that there are 2500 articles present in the dataset, each consisting of a headline, a description and it's content. There are no missing values, which means we don't have to impute or remove any values. Calculating the average amount of words in each column shows that the descriptions are about twice as long as the headlines, and that the content consists of 228 words on average. Let's also take a look at the words of length 2, 3 and 4. When we print the most common and a little bit less common words of these lengths, we can see that these are either very common or meaningless words. Those of length 3 already contain more meaningful words like buy, bad or cup, although some are still meaningless numbers or seem to be a random concatenation of characters.
+
+Let's take a look at the news articles themselves.
+
+\section{Data preprocessing}
+
+We now know what our data looks like, so we can move on to the preprocessing step. In this step, we will transform paragraphs into uniform tokens separated by spaces. The following transformations are applied to the columns:
+1. Lowercase: All words are transformed to lowercase.
+2. Remove non-alphabetic characters: All special characters and numbers are removed.
+3. Remove short words: Words with a length of 1 or 2 are removed. This prevents the model from learning meaningless words, like we have seen during the data inspection.
+4. Remove unnecessary whitespace: All extra whitespace is removed. This will yield a uniform tokenization of the text without empty tokens on splitting. All leading and trailing whitespace is also removed.
+5. Remove stopwords: Stopwords are common words that do not add any meaning to the text. These are removed to reduce the dimensionality of the data.
+6. Remove nonsense words: Words that are more than 3 characters long while not containing any vowels are removed. These words are likely to be meaningless. During inspection, we saw for example 'CBFC', 'CBDT', 'PYQs', ...
+7. Remove uncommon words: Words that occur less than x times in the dataset are removed. This reduces the dimensionality of the data and removes words that are likely to be typos, other errors or not meaningful. Words in headlines or the description have to occur at least twice, while words in the content have to occur at least 10 times. These values are chosen to eliminate words that only occur once in the title or description and to reduce the dimensionality of the data for words in the content.
+
+
+
+
+
+\end{document}

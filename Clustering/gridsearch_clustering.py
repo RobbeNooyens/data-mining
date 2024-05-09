@@ -34,7 +34,7 @@ from sklearn.cluster import (
     HDBSCAN,
 )
 
-from Clustering.utils import plot_clusters, preprocess_column, explain
+from Clustering.utils import plot_documents_per_cluster, preprocess_column, explain
 
 
 def tune_model(model, X, parameters):
@@ -102,7 +102,7 @@ for model_name in parameters.keys():
     model = globals()[model_name](**best_params)
     model.fit(X)
     cluster_assignments = model.labels_
-    plot_clusters(cluster_assignments, model_name)
+    plot_documents_per_cluster(cluster_assignments, model_name)
     explain(model, vectorizer.get_feature_names_out())
     # ================================================
     end = time.time()
