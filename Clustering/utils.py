@@ -5,6 +5,8 @@ from matplotlib import pyplot as plt
 from nltk import SnowballStemmer
 from nltk.corpus import stopwords, words
 from pandas import DataFrame
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import GridSearchCV
 from tabulate import tabulate
 from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, Birch, AffinityPropagation
 from sklearn.decomposition import TruncatedSVD, PCA
@@ -64,7 +66,7 @@ def inspect(df: DataFrame):
     # Less common words length 4:	item, hide, ghar, hire, Jony, Road, NBFC, Lipa, PYQs, gaye, pink, 38th, cult, Evan, CBFC, slog, jets, Fast, slot, Raaz, Rory, Bath, Yuki, lady, Hota, teen, belt, Soni, CBDT, Rest, saga, bans, gear, Pele, Back, bath, Ivan, CGST, Mere, labs
 
 
-def preprocess_column(column, min_count=0):
+def preprocess_column(column, min_count=0, apply_stemming=False):
     # Lowercase
     column = column.apply(lambda x: x.lower().strip())
     # Remove special characters
@@ -83,7 +85,17 @@ def preprocess_column(column, min_count=0):
     word_freq = pd.Series(' '.join(column).split()).value_counts()
     # Remove all elements that occur less than min_count times
     column = column.apply(lambda x: ' '.join([word for word in x.split() if word_freq[word] >= min_count]))
+    if apply_stemming:
+        # Stem words
+        column = column.apply(lambda x: ' '.join(stem.stem(word) for word in x.split()))
     return column
+
+
+def bag_of_words(df: DataFrame):
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(df['headlines'] + ' ' + df['description'] + ' ' + df['content'])
+    print(f"Shape: {X.shape}, Non-zero elements: {X.nnz}")
+    return X, vectorizer.get_feature_names_out()
 
 
 def plot_documents_per_cluster(cluster_assignments, title='Number of documents in each cluster', show=False):
@@ -161,6 +173,18 @@ def print_cluster_explanation_table(labels, X_original, feature_names):
 
     # Print the table
     print(tabulate(data, headers=headers, tablefmt='grid'))
+
+def tune_model(model, X, parameters):
+    grid_search = GridSearchCV(model, parameters, scoring=silhouette_scorer, error_score='raise', verbose=0,
+                               n_jobs=-1, cv=3)
+    grid_search.fit(X)
+    print(f"Best parameters for {model}: {grid_search.best_params_}")
+    return grid_search.best_params_
+
+
+def silhouette_scorer(estimator, X):
+    estimator.fit(X)
+    return silhouette_score(X, estimator.labels_)
 
 
 def evaluate_clustering(X, labels, name='N/A'):
