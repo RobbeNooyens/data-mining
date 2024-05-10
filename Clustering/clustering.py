@@ -141,6 +141,20 @@ parameters = {
         "n_clusters": [4, 5, 6],
         "threshold": [0.5, 0.75, 1],
     },
+    "AffinityPropagation": {
+        "damping": [0.5, 0.75, 0.9],
+        "max_iter": [200, 300, 400],
+    },
+    "DBSCAN": {
+        "eps": [0.5, 0.75, 1],
+        "min_samples": [5, 10, 15],
+        "metric": ["euclidean", "manhattan"]
+    },
+    "HDBSCAN": {
+        "min_cluster_size": [5, 10, 15],
+        "min_samples": [5, 10, 15],
+        "cluster_selection_epsilon": [0.5, 0.75, 1],
+    }
 }
 
 for model_name in parameters.keys():
