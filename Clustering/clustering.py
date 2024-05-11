@@ -6,7 +6,8 @@ from sklearn.manifold import TSNE, MDS, Isomap, LocallyLinearEmbedding, Spectral
 from umap import UMAP
 
 from utils import preprocess_column, print_cluster_explanation, inspect, plot_cluster_assignments, \
-    plot_documents_per_cluster, evaluate_clustering, print_cluster_explanation_table, bag_of_words, tune_model
+    plot_documents_per_cluster, evaluate_clustering, print_cluster_explanation_table, bag_of_words, tune_model, \
+    process_and_evaluate_clustering, perform_clustering
 
 # ================  Load Dataset  ================
 df_original = pd.read_excel('assignment3_articles.xlsx').drop(columns=['Unnamed: 0'])
@@ -54,35 +55,16 @@ plot_cluster_assignments(X_SpectralEmbedding, "SpectralEmbedding")
 plot_cluster_assignments(X_UMAP_stemmed, "UMAP Stemmed")
 
 # ================  KMeans Clustering  ================
-kmeans_UMAP = KMeans(n_clusters=5, random_state=0)
-kmeans_TSNE = KMeans(n_clusters=5, random_state=0)
-kmeans_UMAP_stemmed = KMeans(n_clusters=5, random_state=0)
-
-kmeans_UMAP.fit(X_UMAP)
-kmeans_TSNE.fit(X_TSNE)
-kmeans_UMAP_stemmed.fit(X_stemmed)
-
-plot_documents_per_cluster(kmeans_UMAP_clusters := kmeans_UMAP.labels_, "Document per cluster - UMAP KMeans(5)")
-plot_documents_per_cluster(kmeans_TSNE_clusters := kmeans_TSNE.labels_, "Document per cluster - TSNE KMeans(5)")
-plot_documents_per_cluster(kmeans_UMAP_stemmed_clusters := kmeans_UMAP_stemmed.labels_, "Document per cluster - UMAP Stemmed KMeans(5)")
-
-plot_cluster_assignments(X_UMAP, "UMAP KMeans(5)", kmeans_UMAP_clusters)
-plot_cluster_assignments(X_TSNE, "TSNE KMeans(5)", kmeans_TSNE_clusters)
-plot_cluster_assignments(X_UMAP_stemmed, "UMAP Stemmed KMeans(5)", kmeans_UMAP_stemmed_clusters)
-
-print_cluster_explanation_table(kmeans_UMAP.labels_, X_original, feature_names)
-print_cluster_explanation_table(kmeans_TSNE.labels_, X_original, feature_names)
-print_cluster_explanation_table(kmeans_UMAP_stemmed.labels_, X_original, feature_names)
-
-evaluate_clustering(X_UMAP, kmeans_UMAP.labels_, "UMAP")
-evaluate_clustering(X_TSNE, kmeans_TSNE.labels_, "TSNE")
-evaluate_clustering(X_UMAP_stemmed, kmeans_UMAP_stemmed.labels_, "UMAP Stemmed")
+kmeans_UMAP_clusters = process_and_evaluate_clustering(X_UMAP, X_original, feature_names, "UMAP")
+kmeans_TSNE_clusters = process_and_evaluate_clustering(X_TSNE, X_original, feature_names, "TSNE")
+kmeans_UMAP_stemmed_clusters = process_and_evaluate_clustering(X_UMAP_stemmed, X_original, feature_names,"UMAP Stemmed")
 
 df_original['UMAP KMeans(5)'] = kmeans_UMAP_clusters
 df_original['TSNE KMeans(5)'] = kmeans_TSNE_clusters
 df_original.to_excel('assignment3_articles_clustered.xlsx', index=False)
 
 # ================  Extended Clustering  ================
+# Initialize clustering algorithms
 dbscan_UMAP = DBSCAN()
 hdbscan_UMAP = HDBSCAN(max_cluster_size=10)
 agglo_UMAP = AgglomerativeClustering(n_clusters=5)
@@ -90,34 +72,13 @@ spectral_UMAP = SpectralClustering(n_clusters=5)
 birch_UMAP = Birch(n_clusters=5)
 affinity_UMAP = AffinityPropagation()
 
-dbscan_UMAP.fit(X_UMAP)
-hdbscan_UMAP.fit(X_UMAP)
-agglo_UMAP.fit(X_UMAP)
-spectral_UMAP.fit(X_UMAP)
-birch_UMAP.fit(X_UMAP)
-affinity_UMAP.fit(X_UMAP)
-
-plot_documents_per_cluster(dbscan_UMAP_clusters := dbscan_UMAP.labels_, "Document per cluster - UMAP DBSCAN")
-plot_documents_per_cluster(hdbscan_UMAP_clusters := hdbscan_UMAP.labels_, "Document per cluster - UMAP HDBSCAN")
-plot_documents_per_cluster(agglo_UMAP_clusters := agglo_UMAP.labels_, "Document per cluster - UMAP Agglomerative")
-plot_documents_per_cluster(spectral_UMAP_clusters := spectral_UMAP.labels_, "Document per cluster - UMAP Spectral")
-plot_documents_per_cluster(birch_UMAP_clusters := birch_UMAP.labels_, "Document per cluster - UMAP Birch")
-plot_documents_per_cluster(affinity_UMAP_clusters := affinity_UMAP.labels_, "Document per cluster - UMAP Affinity")
-
-plot_cluster_assignments(X_UMAP, "UMAP DBSCAN", dbscan_UMAP_clusters)
-plot_cluster_assignments(X_UMAP, "UMAP HDBSCAN", hdbscan_UMAP_clusters)
-plot_cluster_assignments(X_UMAP, "UMAP Agglomerative", agglo_UMAP_clusters)
-plot_cluster_assignments(X_UMAP, "UMAP Spectral", spectral_UMAP_clusters)
-plot_cluster_assignments(X_UMAP, "UMAP Birch", birch_UMAP_clusters)
-plot_cluster_assignments(X_UMAP, "UMAP Affinity", affinity_UMAP_clusters)
-
-evaluate_clustering(X_UMAP, dbscan_UMAP.labels_, "UMAP DBSCAN")
-evaluate_clustering(X_UMAP, hdbscan_UMAP.labels_, "UMAP HDBSCAN")
-evaluate_clustering(X_UMAP, agglo_UMAP.labels_, "UMAP Agglomerative")
-evaluate_clustering(X_UMAP, spectral_UMAP.labels_, "UMAP Spectral")
-evaluate_clustering(X_UMAP, birch_UMAP.labels_, "UMAP Birch")
-evaluate_clustering(X_UMAP, affinity_UMAP.labels_, "UMAP Affinity")
-
+# Perform clustering and evaluations
+perform_clustering(dbscan_UMAP, X_UMAP, "UMAP DBSCAN")
+perform_clustering(hdbscan_UMAP, X_UMAP, "UMAP HDBSCAN")
+perform_clustering(agglo_UMAP, X_UMAP, "UMAP Agglomerative")
+perform_clustering(spectral_UMAP, X_UMAP, "UMAP Spectral")
+perform_clustering(birch_UMAP, X_UMAP, "UMAP Birch")
+perform_clustering(affinity_UMAP, X_UMAP, "UMAP Affinity")
 
 # ================  Optimization using GridSearch  ================
 parameters = {

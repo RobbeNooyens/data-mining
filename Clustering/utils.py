@@ -5,11 +5,10 @@ from matplotlib import pyplot as plt
 from nltk import SnowballStemmer
 from nltk.corpus import stopwords, words
 from pandas import DataFrame
+from sklearn.cluster import KMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import GridSearchCV
 from tabulate import tabulate
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, Birch, AffinityPropagation
-from sklearn.decomposition import TruncatedSVD, PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 
 # Download words
@@ -96,6 +95,44 @@ def bag_of_words(df: DataFrame):
     X = vectorizer.fit_transform(df['headlines'] + ' ' + df['description'] + ' ' + df['content'])
     print(f"Shape: {X.shape}, Non-zero elements: {X.nnz}")
     return X, vectorizer.get_feature_names_out()
+
+
+def process_and_evaluate_clustering(X, X_original, feature_names, method_name, n_clusters=5):
+    # Create and fit the KMeans model
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+    kmeans.fit(X)
+
+    # Get the cluster labels
+    labels = kmeans.labels_
+
+    # Plot the documents per cluster
+    plot_documents_per_cluster(labels, f"Document per cluster - {method_name} KMeans({n_clusters})")
+
+    # Plot the cluster assignments
+    plot_cluster_assignments(X, f"{method_name} KMeans({n_clusters})", labels)
+
+    # Print cluster explanation table
+    print_cluster_explanation_table(labels, X_original, feature_names)
+
+    # Evaluate clustering
+    evaluate_clustering(X, labels, method_name)
+
+    return labels
+
+
+def perform_clustering(algorithm, X, algorithm_name):
+    # Fit the clustering algorithm
+    algorithm.fit(X)
+    labels = algorithm.labels_
+
+    # Plot documents per cluster
+    plot_documents_per_cluster(labels, f"Document per cluster - {algorithm_name}")
+
+    # Plot cluster assignments
+    plot_cluster_assignments(X, f"Cluster assignments - {algorithm_name}", labels)
+
+    # Evaluate clustering
+    evaluate_clustering(X, labels, algorithm_name)
 
 
 def plot_documents_per_cluster(cluster_assignments, title='Number of documents in each cluster', show=False):
