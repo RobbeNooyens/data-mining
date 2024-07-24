@@ -7,7 +7,7 @@ from umap import UMAP
 
 from utils import preprocess_column, print_cluster_explanation, inspect, plot_cluster_assignments, \
     plot_documents_per_cluster, evaluate_clustering, print_cluster_explanation_table, bag_of_words, tune_model, \
-    process_and_evaluate_clustering, perform_clustering
+    process_and_evaluate_clustering, perform_clustering, create_similarity_matrix, visualize_similarity_matrix
 
 # ================  Load Dataset  ================
 df_original = pd.read_excel('assignment3_articles.xlsx').drop(columns=['Unnamed: 0'])
@@ -65,7 +65,7 @@ df_original.to_excel('assignment3_articles_clustered.xlsx', index=False)
 
 # ================  Extended Clustering  ================
 # Initialize clustering algorithms
-dbscan_UMAP = DBSCAN()
+dbscan_UMAP = DBSCAN(min_samples=14, eps=0.35)
 hdbscan_UMAP = HDBSCAN(max_cluster_size=10)
 agglo_UMAP = AgglomerativeClustering(n_clusters=5)
 spectral_UMAP = SpectralClustering(n_clusters=5)
@@ -73,12 +73,27 @@ birch_UMAP = Birch(n_clusters=5)
 affinity_UMAP = AffinityPropagation()
 
 # Perform clustering and evaluations
-perform_clustering(dbscan_UMAP, X_UMAP, "UMAP DBSCAN")
 perform_clustering(hdbscan_UMAP, X_UMAP, "UMAP HDBSCAN")
 perform_clustering(agglo_UMAP, X_UMAP, "UMAP Agglomerative")
 perform_clustering(spectral_UMAP, X_UMAP, "UMAP Spectral")
 perform_clustering(birch_UMAP, X_UMAP, "UMAP Birch")
 perform_clustering(affinity_UMAP, X_UMAP, "UMAP Affinity")
+
+# Print cluster assignments for DBSCAN
+dblabels = perform_clustering(dbscan_UMAP, X_UMAP, "UMAP DBSCAN")
+print_cluster_explanation_table(dblabels, X_original, feature_names)
+
+
+# ================  Similarity Matrix  =================
+similarity_matrix_kmeans = create_similarity_matrix(kmeans_UMAP_clusters)
+similarity_matrix_dbscan = create_similarity_matrix(dblabels)
+
+visualize_similarity_matrix(similarity_matrix_kmeans, "UMAP KMeans Similarity")
+visualize_similarity_matrix(similarity_matrix_dbscan, "UMAP DBSCAN Similarity")
+
+# Example print of similarity matrices
+print("UMAP KMeans Similarity Matrix:\n", similarity_matrix_kmeans)
+print("UMAP DBSCAN Similarity Matrix:\n", similarity_matrix_dbscan)
 
 # ================  Optimization using GridSearch  ================
 parameters = {
@@ -107,8 +122,8 @@ parameters = {
         "max_iter": [200, 300, 400],
     },
     "DBSCAN": {
-        "eps": [0.5, 0.75, 1],
-        "min_samples": [5, 10, 15],
+        "eps": [0.3, 0.4, 0.5],
+        "min_samples": [8, 10, 12],
         "metric": ["euclidean", "manhattan"]
     },
     "HDBSCAN": {

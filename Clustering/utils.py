@@ -10,6 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import GridSearchCV
 from tabulate import tabulate
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+import seaborn as sns
 
 # Download words
 nltk.download('stopwords')
@@ -99,7 +100,7 @@ def bag_of_words(df: DataFrame):
 
 def process_and_evaluate_clustering(X, X_original, feature_names, method_name, n_clusters=5):
     # Create and fit the KMeans model
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0, init='random')
     kmeans.fit(X)
 
     # Get the cluster labels
@@ -133,6 +134,8 @@ def perform_clustering(algorithm, X, algorithm_name):
 
     # Evaluate clustering
     evaluate_clustering(X, labels, algorithm_name)
+
+    return labels
 
 
 def plot_documents_per_cluster(cluster_assignments, title='Number of documents in each cluster', show=False):
@@ -183,21 +186,22 @@ def print_cluster_explanation(labels, X_original, feature_names):
 
 
 def print_cluster_explanation_table(labels, X_original, feature_names):
-    num_clusters = np.max(labels) + 1
+    start = -1 if -1 in labels else 0
+    end = np.max(labels) + 1
+    num_clusters = abs(end) + abs(start)
 
     # Calculate the mean TF-IDF score for each term in each cluster
     term_ratios = np.zeros((num_clusters, X_original.shape[1]))
 
-    for i in range(num_clusters):
+    for i in range(start, end):
         # Find indices of documents in the cluster
         indices = np.where(labels == i)[0]
         # Aggregate TF-IDF scores by mean within the cluster
-        term_ratios[i, :] = np.mean(X_original[indices], axis=0)
+        term_ratios[i + abs(start), :] = np.mean(X_original[indices], axis=0)
 
     # Create table headers
-    headers = ['Cluster']
+    headers = [f'Cluster {i}' for i in range(start, end)]
     # Add cluster numbers to headers
-    headers.extend([f'Cluster {i}' for i in range(num_clusters)])
 
     # Create a dictionary to hold data rows for the table
     data = {}
@@ -222,6 +226,42 @@ def tune_model(model, X, parameters):
 def silhouette_scorer(estimator, X):
     estimator.fit(X)
     return silhouette_score(X, estimator.labels_)
+
+
+def create_similarity_matrix(cluster_assignments):
+    # Number of clusters
+    num_clusters = np.max(cluster_assignments) + 1
+
+    # Initialize the similarity matrix
+    similarity_matrix = np.zeros((num_clusters, num_clusters))
+
+    # Calculate the co-occurrence of clusters
+    for i in range(len(cluster_assignments)):
+        for j in range(i + 1, len(cluster_assignments)):
+            cluster_i = cluster_assignments[i]
+            cluster_j = cluster_assignments[j]
+            if cluster_i == cluster_j:
+                similarity_matrix[cluster_i][cluster_j] += 1
+                similarity_matrix[cluster_j][cluster_i] += 1
+
+    # Normalize the similarity matrix
+    # To get a symmetric matrix with 1s on the diagonal
+    for i in range(num_clusters):
+        similarity_matrix[i][i] = len(cluster_assignments) // num_clusters
+    similarity_matrix /= np.max(similarity_matrix)
+
+    return similarity_matrix
+
+
+def visualize_similarity_matrix(similarity_matrix, title='Similarity Matrix', show=False):
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(similarity_matrix, annot=True, cmap='viridis', linewidths=0.5, cbar=True)
+    plt.title(title)
+    plt.xlabel('Item')
+    plt.ylabel('Item')
+    if show:
+        plt.show()
+    plt.savefig(f'Plots/{title}.png')
 
 
 def evaluate_clustering(X, labels, name='N/A'):
